@@ -24,7 +24,6 @@ public class CustomerController {
         customer.setId(UUID.randomUUID().toString());
         customer.setName(r.getName());
         customer.setEmail(r.getEmail());
-        customer.setNewsletterId(newsletterId);
         customerRepository.save(customer);
         newsletter.getCustomers().add(customer);
         newsletterRepository.save(newsletter);
