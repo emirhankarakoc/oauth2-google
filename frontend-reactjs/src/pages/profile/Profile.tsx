@@ -6,16 +6,15 @@ import axios from "axios";
 import { Button } from "@nextui-org/button";
 
 export default function Profile() {
-  // Define a type for user state
   type User = {
     id: string;
     email: string;
     role: string;
     oauth2: OAuth2Account;
-    userStatus: UserStatus; // Include userStatus
+    userStatus: UserStatus;
   } | null;
 
-  type UserStatus = "GOOGLE_VERIFICATED" | "GOOGLE_NOT_VERIFICATED"; // Define possible statuses
+  type UserStatus = "GOOGLE_VERIFICATED" | "GOOGLE_NOT_VERIFICATED";
 
   interface OAuth2Account {
     id: string;
@@ -26,16 +25,20 @@ export default function Profile() {
     name: string;
     picture: string;
     verified_email: boolean;
-    gmailAccessToken: string;
+    gmailAccessToken: access_token;
   }
 
   const [user2, setUser2] = useState<OAuth2Account>();
+  const [shouldRefresh, setShouldRefresh] = useState(false); // Bu durumu ekledik
 
   const login = useGoogleLogin({
     onSuccess: (codeResponse) => {
       setUser2(codeResponse);
+      setShouldRefresh(true); // Bağlantı başarılı olduğunda tetikleme
     },
     onError: (error) => console.log("Login Failed:", error),
+    scope:
+      "openid profile email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send",
   });
 
   useEffect(() => {
@@ -46,16 +49,13 @@ export default function Profile() {
             `https://www.googleapis.com/oauth2/v1/userinfo?access_token=${user2.access_token}`,
             {
               headers: {
-                Authorization: `Bearer ${user2.gmailAccessToken}`,
+                Authorization: `Bearer ${user2.access_token}`,
                 Accept: "application/json",
               },
             }
           );
-          console.log(response.data);
-          //user geldi.
-          //datalari backende yollama zamani ve kaydolma zamani.
           const userprofile = await axios.post(
-            `${APIURL}/accounts/oauth2/${user2.gmailAccessToken}`,
+            `${APIURL}/accounts/oauth2/${user2.access_token}`,
             response.data,
             {
               headers: {
@@ -64,9 +64,7 @@ export default function Profile() {
               },
             }
           );
-          console.log(userprofile);
-
-          console.log("ikinci istegi de yolladim");
+          setShouldRefresh(true); // Başarıyla kaydolduktan sonra yenile
         } catch (err) {
           httpError(err);
         }
@@ -76,7 +74,6 @@ export default function Profile() {
     fetchUserDetails();
   }, [user2]);
 
-  // Initialize state as User or null
   const [user, setUser] = useState<User>(null);
 
   useEffect(() => {
@@ -87,16 +84,16 @@ export default function Profile() {
         setUser(response.data);
       } catch (error) {
         console.log(error);
-        setUser(null); // Correctly set state to null on error
+        setUser(null);
       }
     };
 
     handleGetMe();
-  }, []);
+  }, [shouldRefresh]); // Bu durumda bileşen yenilenir
+
   const [isLoading, setLoading] = useState(false);
   const handleLogOutOAuth2Account = async () => {
     setLoading(true);
-    //
     try {
       await http.post(`/accounts/delete/oauth2connection/${user?.id}`, {
         headers: {
@@ -104,11 +101,13 @@ export default function Profile() {
           "Content-Type": "application/json",
         },
       });
+      setShouldRefresh(true); // Çıkış yaptıktan sonra yenile
     } catch (errr) {
       httpError(errr);
     }
     setLoading(false);
   };
+
   return (
     <div>
       <div>
@@ -139,7 +138,7 @@ export default function Profile() {
                 </div>
               ) : (
                 <div>
-                  <div className="mt-15 border-3 border-green-600  text-3xl flex flex-col">
+                  <div className="mt-15 border-3 border-green-600 text-3xl flex flex-col">
                     <p>Kisi dogrulanmistir.</p>
                     <div className="font-sfpro">
                       GMAIL ADRESI:{user.oauth2.email}
@@ -153,6 +152,8 @@ export default function Profile() {
                   >
                     GMAIL HESABIYLA BAGLANTIYI KES
                   </Button>
+
+                  <Button>yeni bulten olustur.</Button>
                 </div>
               )}
             </div>
@@ -163,7 +164,6 @@ export default function Profile() {
           </div>
         )}
       </div>
-      <div></div>
     </div>
   );
 }
